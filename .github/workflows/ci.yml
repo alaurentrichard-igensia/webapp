@@ -37,21 +37,21 @@ jobs:
           path: coverage/
 
   sonar-check:
-    name: Analyse SonarQube Cloud
     needs: unit-test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Récupérer le code
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Récupérer la couverture
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: coverage
           path: coverage/
+
+      - name: Vérifier la configuration Sonar
+        run: cat sonar-project.properties
 
       - name: Analyse SonarQube Cloud
         uses: SonarSource/sonarqube-scan-action@v6
