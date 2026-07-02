@@ -1,4 +1,4 @@
-name: DevSecOps Pipeline (Cloud)
+name: DevSecOps Pipeline Cloud
 
 on:
   push:
@@ -11,87 +11,112 @@ permissions:
   security-events: write
 
 jobs:
-  # 1. Tests unitaires + couverture
   unit-test:
+    name: Tests unitaires et couverture
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
-      - run: npm install
-      - run: npm test
+          node-version: '24'
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Lancer les tests
+        run: npm test
+
       - name: Sauvegarder la couverture
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/
 
-  # 2. SonarQube Cloud (SAST & qualité du code)
   sonar-check:
+    name: Analyse SonarQube Cloud
     needs: unit-test
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Récupérer le code
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
       - name: Récupérer la couverture
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: coverage
           path: coverage/
+
       - name: Analyse SonarQube Cloud
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          # attend le verdict du Quality Gate défaut "Sonar way"
-          # et fait échouer le job si elle n'est pas respectée.
           args: >
             -Dsonar.qualitygate.wait=true
 
-  # 3. Trivy - scan des dépendances (SCA)
   dependency-scan:
+    name: Scan des dépendances avec Trivy
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
       - name: Scan du système de fichiers
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
 
-  # 4. Build l'image Docker
   build-image:
+    name: Build de l'image Docker
     needs: [ sonar-check, dependency-scan ]
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
       - name: Build de l'image
         run: docker build -t my-app:${{ github.sha }} .
+
       - name: Exporter l'image
         run: docker save my-app:${{ github.sha }} -o my-image.tar
-      - uses: actions/upload-artifact@v4
+
+      - name: Sauvegarder l'image Docker
+        uses: actions/upload-artifact@v7
         with:
           name: docker-image
           path: my-image.tar
 
-  # 5. Trivy - scan de l'image conteneur
   container-scan:
+    name: Scan de l'image Docker avec Trivy
     needs: build-image
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Récupérer l'image Docker
+        uses: actions/download-artifact@v8
         with:
           name: docker-image
           path: .
+
       - name: Charger l'image
         run: docker load -i my-image.tar
-      - name: Scan de l'image
-        uses: aquasecurity/trivy-action@0.28.0
+
+      - name: Scanner l'image Docker
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          scan-type: 'image'
           image-ref: 'my-app:${{ github.sha }}'
           severity: 'CRITICAL'
           exit-code: '1'
