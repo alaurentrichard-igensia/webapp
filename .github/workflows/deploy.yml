@@ -51,10 +51,7 @@ jobs:
 
       - name: Créer le secret pour tirer l'image depuis GHCR
         run: |
-          kubectl create secret docker-registry ghcr-secret \
-            --docker-server=ghcr.io \
-            --docker-username=${{ github.actor }} \
-            --docker-password=${{ secrets.GITHUB_TOKEN }}
+          kubectl create secret docker-registry ghcr-secret             --docker-server=ghcr.io             --docker-username=${{ github.actor }}             --docker-password=${{ secrets.GITHUB_TOKEN }}
 
       - name: Injecter l'image puis déployer les manifests
         run: |
